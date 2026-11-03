@@ -1,0 +1,32 @@
+name: Run Daily Forecast
+
+on:
+  schedule:
+    # Se izvrshuva sekoj den vo 06:00 UTC (prilozheniot tajmer)
+    - cron: '0 6 * * *'
+  workflow_dispatch: # Ova ti dozvoluva i rakno da ja pustish skriptata koga sakash
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Zadolzitelno za da moze skriptata da go snimi/zachuva noviot CSV fajl
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Run forecast script
+        run: python forecast_skopje.py
+
+      - name: Commit and push generated CSV
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add forecast_skopje.csv
+          git commit -m "Avtomatsko azuriranje na prognozata" || exit 0
+          git push
