@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="mk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Моден-Време Календар Скопје</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 15px;
+            color: #333;
+        }
+        .header {
+            background: #ffeb3b;
+            color: #b71c1c;
+            padding: 15px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 22px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 12px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .day-card {
+            background: white;
+            border: 2px solid #333;
+            border-radius: 6px;
+            padding: 6px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+        }
+        .day-card img {
+            width: 100%;
+            height: 130px;
+            object-fit: cover;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .day-label {
+            font-weight: bold;
+            margin-top: 6px;
+            font-size: 15px;
+            color: #111;
+        }
+        .outfit-title {
+            font-size: 11px;
+            color: #d32f2f;
+            margin-top: 2px;
+            font-weight: bold;
+            min-height: 25px;
+        }
+        .temp-label {
+            font-size: 12px;
+            color: #555;
+            margin-top: 4px;
+            border-top: 1px solid #eee;
+            padding-top: 3px;
+        }
+        .footer-note {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        МОДЕН-ВРЕМЕ календар Скопје
+    </div>
+
+    <div class="calendar-grid" id="calendarGrid">
+        <!-- Податоците се вчитуваат автоматски од CSV фајлот -->
+    </div>
+
+    <div class="footer-note">
+        Автоматски ажурирано преку GitHub Actions & Open-Meteo API
+    </div>
+
+    <script>
+        // Функция која го чита forecast_skopje.csv и ги рефлектира деновите во календарската мрежа
+        async function loadCalendar() {
+            try {
+                const response = await fetch('forecast_skopje.csv?' + new Date().getTime());
+                const data = await response.text();
+                const rows = data.split('\n').slice(1); // Прескокнување на хедерот
+
+                // Групирање по датуми за да имаме еден блок за секој ден
+                const daysMap = {};
+                rows.forEach(row => {
+                    if (!row.trim()) return;
+                    const cols = row.split(',');
+                    const date = cols[0];
+                    const temp = cols[2];
+                    const maxTemp = cols[3];
+                    const minTemp = cols[4];
+                    const cloud = parseFloat(cols[5]);
+                    const wind = parseFloat(cols[7]);
+
+                    if (!daysMap[date]) {
+                        daysMap[date] = {
+                            date: date,
+                            maxTemp: maxTemp,
+                            minTemp: minTemp,
+                            clouds: [],
+                            winds: []
+                        };
+                    }
+                    daysMap[date].clouds.push(cloud);
+                    daysMap[date].winds.push(wind);
+                });
+
+                const gridContainer = document.getElementById('calendarGrid');
+                gridContainer.innerHTML = '';
+
+                Object.keys(daysMap).forEach(dateStr => {
+                    const dayData = daysMap[dateStr];
+                    
+                    // Пресметка на просеци за денот
+                    const avgCloud = dayData.clouds.reduce((a,b)=>a+b, 0) / dayData.clouds.length;
+                    const avgWind = dayData.winds.reduce((a,b)=>a+b, 0) / dayData.winds.length;
+                    const maxT = parseFloat(dayData.maxTemp);
+
+                    // Избор на соодветна слика и стил според временските услови
+                    let outfitName = "Есен Суво Сончево";
+                    let imgFileName = "images/esen_suvo.jpg";
+
+                    if (maxT >= 22) {
+                        outfitName = "Лето Суво Сончево";
+                        imgFileName = "images/leto_suvo.jpg";
+                    } else if (avgCloud > 60 && avgWind > 15) {
+                        outfitName = "Есен Врнежливо Вет.";
+                        imgFileName = "images/esen_vrnezlivovet.jpg";
+                    } else if (avgCloud > 60) {
+                        outfitName = "Есен Облачно Тим.";
+                        imgFileName = "images/esen_vlazh_oblach.jpg";
+                    } else if (maxT < 12) {
+                        outfitName = "Зима Ладно / Вет.";
+                        imgFileName = "images/zima_vrnezlivotiv.jpg";
+                    }
+
+                    // Форматирање на датумот од YYYY-MM-DD во DD.MM
+                    const parts = dateStr.split('-');
+                    const formattedDate = `${parts[2]}.${parts[1]}`;
+
+                    const cardHTML = `
+                        <div class="day-card">
+                            <img src="${imgFileName}" alt="${outfitName}" onerror="this.src='https://via.placeholder.com/100x130?text=Outfit'">
+                            <div class="day-label">${formattedDate}</div>
+                            <div class="outfit-title">${outfitName}</div>
+                            <div class="temp-label">${dayData.maxTemp}°C / ${dayData.minTemp}°C</div>
+                        </div>
+                    `;
+                    gridContainer.innerHTML += cardHTML;
+                });
+
+            } catch (error) {
+                console.error("Грешка при вчитување на CSV:", error);
+                document.getElementById('calendarGrid').innerHTML = "<p>Грешка при вчитување на податоците од CSV.</p>";
+            }
+        }
+
+        loadCalendar();
+    </script>
+</body>
+</html>
