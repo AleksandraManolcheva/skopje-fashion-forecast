@@ -1,0 +1,30 @@
+name: Daily Skopje Weather & Fashion Forecast
+
+on:
+  schedule:
+    # Се извршува секој ден во 05:00 UTC (06:00 / 07:00 по македонско време)
+    - cron: '0 5 * * *'
+  workflow_dispatch: # Овозможува и рачно пуштање со клик
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Run forecast script
+        run: python forecast_skopje.py
+
+      - name: Commit and push generated CSV
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add forecast_skopje.csv
+          git commit -m "Автоматско ажурирање на прогнозата" || exit 0
+          git push
